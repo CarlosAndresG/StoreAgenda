@@ -1,5 +1,3 @@
-include MoneyRails::ActionViewExtension
-require 'memoist'
 module Api
   module V1
     class InvoicesController < ApplicationController
@@ -82,6 +80,10 @@ module Api
         params[:id].split(',').map(&:strip).tally
       end
       memoize :material_params
+
+      def humanized_money_with_symbol(args)
+        ActionController::Base.helpers.humanized_money_with_symbol(args)
+      end
     end
   end
 end
