@@ -5,72 +5,66 @@ module Api
     class InvoicesController < ApplicationController
       extend Memoist
 
+      before_action :material_price, only: %i[index]
 
       def index
-        @ids_array = params[:id].split(',')
         @offers_array = []
-        
-        invoice_details = Hash.new           
-        invoice_details["SubTotal"] = humanized_money_with_symbol(subtotal*100)
-        invoice_details["Disccount"] = humanized_money_with_symbol(disccount_rules*100)
-        invoice_details["Total"] = humanized_money_with_symbol((subtotal-disccount_rules)*100);
 
-        if !@offers_array.nil?
-          invoice_details["offers"] = @offers_array;
-        end
-        
-        render json: {status: 'SUCCESS', message: 'Total Invoice calculated', data: invoice_details }, status: :ok
+        invoice_details = ActiveSupport::HashWithIndifferentAccess.new
+        invoice_details[:SubTotal] = humanized_money_with_symbol(subtotal)
+        invoice_details[:Disccount] = humanized_money_with_symbol(disccount_rules * 100)
+        invoice_details[:Total] = humanized_money_with_symbol((subtotal - disccount_rules))
+
+        invoice_details[:offers] = @offers_array unless @offers_array.empty?
+
+        render json: { message: 'Total Invoice calculated', data: invoice_details }, status: :ok
       end
-      
-       
+
       private
 
       def subtotal
-        total = 0.00
-        @ids_array.each do |id|
-          a = MaterialPrice.find_by(code: id)
-          if !a.nil?
-            total = total + a.price_cents
-          end
+        total = 0.0
+
+        material_price.pluck(:code, :price).each do |code, price|
+          total += material_params[code] * price
         end
-        return total
+        total.to_money
       end
       memoize :subtotal
 
       def disccount_rules
-         total_disccount = evaluate_rule1 + evaluate_rule2
+        (evaluate_rule1 + evaluate_rule2).to_money
       end
       memoize :disccount_rules
 
       def evaluate_rule1
         # 2-for-1 (buy two, one of them is free) for the `MUG` item;
         disccount = 0.00
-        qty_mugs = @ids_array.tally["MUG"]
+        qty_mugs = material_params['MUG']
 
-        if !qty_mugs.nil? and qty_mugs >= 2
+        if qty_mugs && qty_mugs >= 2
           qty_discount = qty_mugs / 2
-          disccount = MaterialPrice.find_by(code: "MUG").price_cents * qty_discount
-          @offers_array.push("2-for-1 (buy two, one of them is free) for the `MUG` item")
+          disccount = material_price.find_by(code: 'MUG').price_cents * qty_discount
+          @offers_array.push('2-for-1 (buy two, one of them is free) for the `MUG` item')
         end
 
-        return disccount
+        disccount
       end
       memoize :evaluate_rule1
 
       def evaluate_rule2
         # 30% discounts on all `TSHIRT` items when buying 3 or more.
         disccount = 0.00
-        qty_tshirt = @ids_array.tally["TSHIRT"]
+        qty_tshirt = material_params['TSHIRT']
 
-        if !qty_tshirt.nil? and qty_tshirt >= 3
-          disccount = MaterialPrice.find_by(code: "TSHIRT").price_cents * qty_tshirt * 0.3
-          @offers_array.push("30% discounts on all `TSHIRT` items when buying 3 or more")
+        if qty_tshirt && qty_tshirt >= 3
+          disccount = material_price.find_by(code: 'TSHIRT').price_cents * qty_tshirt * 0.3
+          @offers_array.push('30% discounts on all `TSHIRT` items when buying 3 or more')
         end
 
-        return disccount
+        disccount
       end
       memoize :evaluate_rule2
-
 
       def material_price_params
         params.require(:material_price).permit(:cod, :name, :price, :price_cents, :currency)
@@ -79,7 +73,15 @@ module Api
       def material_update_price_params
         params.require(:material_price).permit(:price, :price_cents)
       end
+
+      def material_price
+        MaterialPrice.material_price(material_params.keys)
+      end
+
+      def material_params
+        params[:id].split(',').map(&:strip).tally
+      end
+      memoize :material_params
     end
   end
-end 
-
+end
