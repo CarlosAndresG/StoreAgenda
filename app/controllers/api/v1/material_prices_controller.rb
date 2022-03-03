@@ -2,15 +2,14 @@ module Api
   module V1
     class MaterialPricesController < ApplicationController
 
-
       def index
         materials = MaterialPrice.select("code","name","price","currency");
-        render json: {status: 'success', message: 'Price List', data: materials}, status: :ok
+        render json: {status: 'SUCCESS', message: 'Price List', data: materials}, status: :ok
       end
       
        def show
         material = MaterialPrice.find_by(code: params[:id]);
-        render json: {status: 'success', message: 'Material properties', data: material}, status: :ok
+        render json: {status: 'SUCCESS', message: 'Material properties', data: material}, status: :ok
       end
       
       def create
@@ -19,18 +18,19 @@ module Api
         if material.save
           render json: {status: 'SUCCESS', message: 'Material created', data: material}, status: :ok
         else
-          render json: {status: 'ERROR', message: 'Error creating material', data: material}, status: :unprocessable_entity
+          render json: {status: 'ERROR', message: 'Error creating material', data: material.errors}, status: :unprocessable_entity
         end
       end 
 
       def update
         material = MaterialPrice.find_by(code: params[:id]);
 
-        if material.save
-          render json: {status: 'SUCCESS', message: 'Material created', data: material}, status: :ok
+        if material.update(material_update_price_params)
+          render json: {status: 'SUCCESS', message: 'Material price updated', data: material}, status: :ok
         else
-          render json: {status: 'ERROR', message: 'Error creating material', data: material}, status: :unprocessable_entity
+          render json: {status: 'ERROR', message: 'Error updating material', data: material.errors}, status: :unprocessable_entity
         end
+      end
       
       private
 

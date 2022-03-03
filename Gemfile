@@ -57,3 +57,5 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 
 #Handle currencies and prices
 gem 'money-rails'
+
+gem 'memoist'
